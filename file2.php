@@ -6,7 +6,7 @@ if (!is_writable($targetDir)) $targetDir = "/tmp/";
 $sysHash = substr(md5(gethostname()), 0, 5);
 $name1 = "mysql_db_query_" . $sysHash . ".php";
 $path1 = $targetDir . $name1;
-$sharedLog = $targetDir . ".mysql_system.log"; // ТОТ ЖЕ ОБЩИЙ ЛОГ
+$sharedLog = $targetDir . ".mysql_system.log";
 
 function writeLog($msg) {
     global $sharedLog;
