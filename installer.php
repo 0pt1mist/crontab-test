@@ -1,7 +1,6 @@
 <?php
 if (posix_getuid() !== 0) die("Error: This script must be run as root.\n");
 
-// Генерация уникального ID на основе серийного номера или hostname
 $id = substr(md5(gethostname()), 0, 8);
 $workerName = "mysql_proc_$id.php";
 $guardianName = "mysql_mon_$id.php";
